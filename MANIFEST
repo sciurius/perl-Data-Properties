@@ -1,0 +1,11 @@
+Changes
+MANIFEST
+Makefile.PL
+README.md
+lib/Data/Properties.pm
+t/00-load.t
+t/10-basic.t
+t/11-keys.t
+t/12-context.t
+t/20-subst.t
+t/21-subst.t
