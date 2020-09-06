@@ -1,3 +1,5 @@
+#! perl
+
 package Data::Properties;
 
 use strict;
@@ -6,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Sat Sep  5 23:24:25 2020
-# Update Count    : 330
+# Last Modified On: Sun Sep  6 20:50:46 2020
+# Update Count    : 333
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -233,7 +235,7 @@ sub parse_lines {
 #
 #    ${foo}              use env.var foo or property foo
 #    ${.foo}             use property foo in current context
-#    ${foo||bar}         same, default to 'bar'
+#    ${foo:bar}          same, default to 'bar'
 #
 # Substitution is handled by String::Interpolate::Named. See its
 # documentation for details.
@@ -475,12 +477,16 @@ sub _interpolate {
     my ( $self, $tpl, $ctx ) = @_;
     my $props = $self->{_props};
     return interpolate( { activator => '$',
-			  keypattern => qr/\.?\w+[-_\w.]*/,
+			  keypattern => qr/\.?\w+[-_\w.]*(?::.*)?/,
 			  args => sub {
 			      my $key = shift;
 			      warn("_inter($key,",$ctx//'<undef>',")\n") if $self->{_debug};
 			      # Establish the value for this key.
 			      my $val = '';
+
+			      my $default = '';
+			      ( $key, $default ) = ( $1, $2 )
+				if $key =~ /^(.*?):(.*)/;
 
 			      # If an environment variable exists, take its value.
 			      if ( exists($ENV{$key}) ) {
@@ -494,7 +500,7 @@ sub _interpolate {
 				      $val = $props->{lc($key)};
 				  }
 				  else {
-				      $val = '';
+				      $val = $default;
 				  }
 			      }
 			} },
