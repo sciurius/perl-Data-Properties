@@ -10,6 +10,9 @@ really hierarchically organized. This means that for a given property
 you can fetch the list of its subkeys, and so on. Moreover, the list
 of subkeys is returned in the order the properties were defined.
 
+Data::Properties can also be used to define data structures, just like
+JSON but with much less quotes.
+
 ## Example of Usage
 
     use Data::Properties;

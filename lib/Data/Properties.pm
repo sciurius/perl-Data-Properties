@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Sep  8 21:22:51 2020
-# Update Count    : 419
+# Last Modified On: Tue Sep  8 21:50:47 2020
+# Update Count    : 422
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -52,6 +52,9 @@ Names are treated case insensitive. Unlike in Java, the properties are
 really hierarchically organized. This means that for a given property
 you can fetch the list of its subkeys, and so on. Moreover, the list
 of subkeys is returned in the order the properties were defined.
+
+Data::Properties can also be used to define data structures, just like
+JSON but with much less quotes.
 
 Property lookup can use a preset property context. If a context I<ctx>
 has been set using C<set_context('I<ctx>')>,
@@ -311,6 +314,12 @@ sub _parse_lines_internal {
 	    }
 	    elsif ( lc($value) eq "null" ) {
 		$value = undef;
+	    }
+	    elsif ( lc($value) eq "true" ) {
+		$value = 1;
+	    }
+	    elsif ( lc($value) eq "false" ) {
+		$value = 0;
 	    }
 	    elsif ( $value =~ /^"(.*)"\s*$/ ) {
 		$value = $1;
@@ -900,9 +909,12 @@ GitHub.
 
 =head1 ACKNOWLEDGEMENTS
 
+This module was initially developed in 1994 as part of the MH-Doc
+(later: MMDS) software suite.
+
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2020 Johan Vromans, all rights reserved.
+Copyright 1994,2002,2020 Johan Vromans, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
