@@ -10,7 +10,7 @@ version = 1
 config.version = 2
 nested {
   version = 3
-  something = 4
+  "some thing" = 4
 }
 EOD
 
@@ -18,9 +18,9 @@ is( $cfg->dump, <<EOD );
 # @ = version config nested
 version = '1'
 config.version = '2'
-# nested.@ = version something
+# nested.@ = version some thing
 nested.version = '3'
-nested.something = '4'
+nested.some thing = '4'
 EOD
 
 is_deeply( $cfg->{_props},
@@ -35,9 +35,9 @@ is_deeply( $cfg->{_props},
 	     'config.version' => 2,
 	     'nested.@' => [
 			    'version',
-			    'something',
+			    'some thing',
 			   ],
-	     'nested.something' => 4,
+	     'nested.some thing' => 4,
 	     'nested.version' => 3,
 	     version => 1,
 	   } );

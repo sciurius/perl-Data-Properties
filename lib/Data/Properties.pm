@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Sep  8 21:50:47 2020
-# Update Count    : 422
+# Last Modified On: Tue Sep  8 22:32:40 2020
+# Update Count    : 427
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -285,7 +285,9 @@ sub _parse_lines_internal {
     my $stack = $context ? [ $context ] : [];
 
     # Process its contents.
+    my $lineno = 0;
     foreach ( @$lines ) {
+	$lineno++;
 
 	# Discard empty lines and comment lines/
 	next if /^\s*#/;
@@ -296,9 +298,10 @@ sub _parse_lines_internal {
 	# foo.bar = "blech"
 	# foo.bar = 'blech'
 	# Simple assignment. The value is expanded unless single quotes are used.
-	if ( /^\s*([-\w.]+)\s*[=:]\s*(.*)/ ) {
+	if ( /^\s*([-\w.]+|"[^"]*"|'[^']*')\s*[=:]\s*(.*)/ ) {
 	    my $prop = $1;
 	    my $value = $2;
+	    $prop = $2 if $prop =~ /^(["'])(.*)\1$/;
 	    $value =~ s/\s+$//;
 
 	    # Make a full name.
@@ -368,13 +371,13 @@ sub _parse_lines_internal {
 	# }
 	# Pop context.
 	if ( /^\s*}\s*$/ ) {
-	    die("stack underflow at line $.") unless @$stack;
+	    die("stack underflow at line $lineno") unless @$stack;
 	    shift(@$stack);
 	    next;
 	}
 
 	# Error.
-	croak("?line $.: $_\n");
+	croak("?line $lineno: $_\n");
     }
 
     # Sanity checks.
