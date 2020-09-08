@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Sun Sep  6 20:50:46 2020
-# Update Count    : 333
+# Last Modified On: Tue Sep  8 09:43:29 2020
+# Update Count    : 370
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -95,6 +95,8 @@ my $DEBUG = 1;
 
 ################ Constructors ################
 
+=over
+
 =item new
 
 I<new> is the standard constructor. I<new> doesn't require any
@@ -133,6 +135,9 @@ sub _constructor {
     # Initialize and bless the new object.
     my $self = bless({}, $class);
 
+    # Default path.
+    $self->{_path} = [ "." ];
+
     # Initialize.
     $self->{_props} = $cloning ? {%{$invocant->{_props}}} : {};
 
@@ -156,25 +161,27 @@ sub _constructor {
 
 ################ Methods ################
 
-=item parse_file I<file> [ , I<path> [ , I<context> ] ]
+=item parse_file I<file> [ , I<context> ]
 
 I<parse_file> reads a properties file and adds the contents to the
 properties object.
 
 I<file> is the name of the properties file. This file is searched in
-all elements of I<path> (an array reference) unless the name starts
-with a slash. Default I<path> is C<.> (current directory).
+all elements of the current search path (see L<set_path()|/"set_path I<paths>">) unless
+the name starts with a slash.
 
 I<context> can be used to designate an initial context where all
 properties from the file will be subkeys of.
 
-For the detailed format of properties files see below.
+For the detailed format of properties files see L<PROPERTY FILES>.
+
+Reading the file is handled by L<File::LoadLines>. See its
+documentation for more power.
 
 =cut
 
 sub parse_file {
-    my ($self, $file, $path, $context) = @_;
-    $self->{_path} = $path;
+    my ($self, $file, $context) = @_;
     $self->_parse_file_internal( $file, $context);
 
     if ( $self->{_debug} ) {
@@ -208,55 +215,54 @@ sub parse_lines {
     $self;
 }
 
-# Simple properties parser.
-# Syntax of properties file:
-#
-# foo.bar = blech
-# foo.xxx = "yyy"
-# foo.xxx = 'yyy'
-#
-# foo {
-#    bar = blech
-#    xxx = yyy
-# }
-#
-# May be nested at will.
-#
-# "include filename" includes the file at the current context.
-#
-# Empty lines, and lines starting with # are ignored.
-#
-# Arg may be a plain value (whitespace, but not trailing, allowed), a
-# single-quoted string, or a double-quoted string (which allows for
-# escape characters like \n and so. LATER!).
-#
-# In the values, substitution of environment variables and properties
-# (in that order) are possible.
-#
-#    ${foo}              use env.var foo or property foo
-#    ${.foo}             use property foo in current context
-#    ${foo:bar}          same, default to 'bar'
-#
-# Substitution is handled by String::Interpolate::Named. See its
-# documentation for details.
-# Expansion is suppressed if single quotes are used around the value.
+=item set_path I<paths>
+
+Sets a search path for file lookup.
+
+I<paths> must be reference to an array of paths.
+
+Default I<path> is C<[ '.' ]> (current directory).
+
+=item get_path
+
+Gets the current search path for file lookup.
+
+=cut
+
+sub set_path {
+    my ( $self ) = shift;
+    my $path = shift;
+    if ( @_ > 0 || !UNIVERSAL::isa($path,'ARRAY') ) {
+	$path = [ $path, @_ ];
+    }
+    $self->{_path} = $path;
+}
+
+sub get_path {
+    my ( $self ) = @_;
+    $self->{_path};
+}
+
+# internal
 
 sub _parse_file_internal {
 
     my ($self, $file, $context) = @_;
     my $did = 0;
     my $searchpath = $self->{_path};
-    $searchpath = [qw(.)] unless $searchpath;
+    $searchpath = [ '' ] unless $searchpath;
 
-    foreach my $path ( @$searchpath ) {
+    foreach ( @$searchpath ) {
+	my $path = $_;
+	$path .= "/" unless $path eq '';
 
 	# Fetch one.
 	my $cfg = $file;
-	$cfg = $path . "/" . $file unless $file =~ m:^/:;
+	$cfg = $path . $file unless $file =~ m:^/:;
 	next unless -e $cfg;
 
 	my $lines = loadlines($cfg);
-	$self->_parse_lines( $lines, $cfg, $context );
+	$self->parse_lines( $lines, $cfg, $context );
 	$did++;
 
 	# We read a file, no need to proceed searching.
@@ -266,6 +272,8 @@ sub _parse_file_internal {
     # Sanity checks.
     croak("No properties $file in " . join(":", @$searchpath)) unless $did;
 }
+
+# internal
 
 sub _parse_lines_internal {
 
@@ -297,6 +305,9 @@ sub _parse_lines_internal {
 	    # Handle strings.
 	    if ( $value =~ /^'(.*)'\s*$/ ) {
 		$value = $1;
+	    }
+	    elsif ( lc($value) eq "null" ) {
+		$value = undef;
 	    }
 	    else {
 		$value = $1 if $value =~ /^"(.*)"\s*$/;
@@ -360,28 +371,7 @@ was set.
 If no value can be found, I<default> is used.
 
 In either case, the resultant value is examined for references to
-other properties or environment variables. Such a reference looks like
-
-   ${name}
-   ${name||default}
-
-I<name> can be the name of an environment variable or property. If
-I<name> is found in the environment, its value is substituted and the
-expansion process continues, re-examining the new contents, until no
-further substitutions can be made. If a non-empty value exists for the
-property I<name> its value is used in a similar way. Hence an empty
-value for a property will be ignored. If no value can be found, the
-I<default> string (not to be confused with the I<default> parameter)
-will be returned.
-
-As an additional service, a tilde C<~> in what looks like a file name
-will be expanded to C<${HOME}>.
-
-The method I<result_in_context> can be used to determine how the
-result was obtained. It will return a non-empty string indicating the
-context in which the result was found, an empty string indicating the
-result was found without context, or undef if no value was found at
-all.
+other properties or environment variables. See L<PROPERTY FILES> below.
 
 =cut
 
@@ -472,12 +462,13 @@ sub expand {
     return $self->_interpolate( $ret, $ctx );
 }
 
+# internal
 
 sub _interpolate {
     my ( $self, $tpl, $ctx ) = @_;
     my $props = $self->{_props};
     return interpolate( { activator => '$',
-			  keypattern => qr/\.?\w+[-_\w.]*(?::.*)?/,
+			  keypattern => qr/\.?\w+[-_\w.]*\??(?::.*)?/,
 			  args => sub {
 			      my $key = shift;
 			      warn("_inter($key,",$ctx//'<undef>',")\n") if $self->{_debug};
@@ -487,22 +478,28 @@ sub _interpolate {
 			      my $default = '';
 			      ( $key, $default ) = ( $1, $2 )
 				if $key =~ /^(.*?):(.*)/;
+			      my $checkdef = $key =~ s/\?$//;
 
 			      # If an environment variable exists, take its value.
 			      if ( exists($ENV{$key}) ) {
 				  $val = $ENV{$key};
+				  $val = defined($val) if $checkdef;
 			      }
 			      else {
 				  my $orig = $key;
 				  $key = $ctx.$key if ord($key) == ord('.');
 				  # For properties, the value should be non-empty.
-				  if ( defined($props->{lc($key)}) && $props->{lc($key)} ne "" ) {
+				  if ( $checkdef ) {
+				      $val = defined($props->{lc($key)});
+				  }
+				  elsif ( defined($props->{lc($key)}) && $props->{lc($key)} ne "" ) {
 				      $val = $props->{lc($key)};
 				  }
 				  else {
 				      $val = $default;
 				  }
 			      }
+			      return $val;
 			} },
 			$tpl );
 }
@@ -614,6 +611,8 @@ sub dumpx {
     $ret;
 }
 
+# internal
+
 sub _dump_internal {
     my ($self, $fh, $cur) = @_;
     $cur .= "." if $cur;
@@ -645,47 +644,78 @@ sub _dump_internal {
 Property files contain definitions for properties. This module uses an
 augmented version of the properties as used in e.g. Java.
 
-In general, each line of the file defines one property. The syntax of
-such a line can be:
+In general, each line of the file defines one property.
 
- foo.bar = blech
- foo.xxx = "yyy"
- foo.zzz = 'xyzzy'
+    version: 1
+    foo.bar = blech
+    foo.xxx = yyy
+    foo.xxx = "yyy"
+    foo.xxx = 'yyy'
+
+The latter three settings for C<foo.xxx> are equivalent.
 
 Whitespace has no significance. A colon C<:> may be used instead of
 C<=>. Lines that are blank or empty, and lines that start with C<#>
 are ignored.
 
+Property I<names> consist of one or more identifiers (series of
+letters and digits) separated by periods.
+
+Valid values are a plain text (whitespace, but not trailing, allowed),
+a single-quoted string, or a double-quoted string (which will allow
+escape characters like \n and so in a future version).
+
+B<IMPORTANT:> All values are strings. There is no distinction between
+
+    foo = 1
+    foo = "1"
+    foo = '1'
+
+and
+
+    foo = Hello World!
+    foo = "Hello World!"
+    foo = 'Hello World!'
+
+Quotes are required when you want leading and/or trailing whitespace.
+Also, the value C<null> is special so if you want to use this as a string
+it needs to be quoted.
+
+Single quotes defer expansion, see L</"Expansion"> below.
+
+=head2 Context
+
 When several properties with a common prefix must be set, they can be
-grouped:
+grouped in a I<context>:
 
- foo {
-    bar = blech
-    xxx = "yyy"
-    zzz = 'zyzzy'
- }
+    foo {
+       bar = blech
+       xxx = "yyy"
+       zzz = 'zyzzy'
+    }
 
-Groups (also known as contexts) may be nested.
+Contexts may be nested.
+
+=head2 Includes
 
 Property files can include other property files:
 
- include "myprops.prp"
+    include "myprops.prp"
 
 All properties that are read from the file are entered in the current
 context. E.g.,
 
- foo {
-   include "myprops.prp"
- }
+    foo {
+      include "myprops.prp"
+    }
 
 will enter all the properties from the file with an additional C<foo.>
 prefix.
 
-Property I<names> consist of one or more identifiers (series of
-letters and digits) separated by periods.
+=head2 Expansion
 
-Property I<values> can be anything. Unless the value is placed between
-single quotes C<''>, the value will be expanded before being assigned
+Property values can be anything. Unless the value is placed between
+single quotes C<''>, the value will be I<expanded> before being assigned
 to the property.
 
 Expansion means:
@@ -694,8 +724,8 @@ Expansion means:
 
 =item *
 
-A tilde C<~> in what looks like a file name will be replaced by
-C<${HOME}>.
+A tilde C<~> in what looks like a file name will be replaced by the
+value of C<${HOME}>.
 
 =item *
 
@@ -707,25 +737,50 @@ If no suitable environment variable exists, I<name> is looked up as a
 property and, if it exists and has a non-empty value, this value is
 substituted.
 
-Otherwise, the C<${I<name>}> string is removed.
+Otherwise, the C<${I<name>}> part is removed.
+
+Note that if a property is referred as C<${.I<name>}>, I<name> is
+looked up in the current context only.
+
+B<Important:> Property lookup is case insensitive.
 
 =item *
 
 If the value contains C<${I<name>:I<value>}>, I<name> is looked up as
 described above. If, however, no suitable value can be found, I<value>
-is substitution.
+is substituted.
 
 =back
 
-This process continues until no modifications can be made.
+Expansion is delayed if single quotes are used around the value.
 
-Note that if a property is referred as C<${.I<name>}>, I<name> is
-looked up in the current context only.
+    x = 1
+    a = ${x}
+    b = "${x}"
+    c = '${x}'
+    x = 2
+
+Now C<a> and C<b> will be C<'1'>, but C<c> will be C<'2'>.
+
+Substitution is handled by String::Interpolate::Named. See its
+documentation for more power.
+
+In addition, you can test for a property being defined (not null) by
+appending a C<?> to its name.
+
+    result = ${x?|${x|value|empty}|null}
+
+This will yield C<value> if C<x> is not null and not empty, C<empty>
+if not null and empty, and C<null> if not defined or defined as null.
+
+=head1 SEE ALSO
+
+L<File::LoadLines>, L<String::Interpolate::Named>.
 
 =head1 BUGS
 
-Although in production, this module is still slightly experimental and
-subject to change.
+Although in production for over 25 years, this module is still
+slightly experimental and subject to change.
 
 =head1 AUTHOR
 
