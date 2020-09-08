@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Sep  8 09:43:29 2020
-# Update Count    : 370
+# Last Modified On: Tue Sep  8 21:22:51 2020
+# Update Count    : 419
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -293,7 +293,7 @@ sub _parse_lines_internal {
 	# foo.bar = "blech"
 	# foo.bar = 'blech'
 	# Simple assignment. The value is expanded unless single quotes are used.
-	if ( /^\s*([\w.]+)\s*[=:]\s*(.*)/ ) {
+	if ( /^\s*([-\w.]+)\s*[=:]\s*(.*)/ ) {
 	    my $prop = $1;
 	    my $value = $2;
 	    $value =~ s/\s+$//;
@@ -305,12 +305,26 @@ sub _parse_lines_internal {
 	    # Handle strings.
 	    if ( $value =~ /^'(.*)'\s*$/ ) {
 		$value = $1;
+		$value =~ s/\\\\/\x{fdd0}/g;
+		$value =~ s/\\'/'/g;
+		$value =~ s/\x{fdd0}/\\/g;
 	    }
 	    elsif ( lc($value) eq "null" ) {
 		$value = undef;
 	    }
+	    elsif ( $value =~ /^"(.*)"\s*$/ ) {
+		$value = $1;
+		$value =~ s/\\\\/\x{fdd0}/g;
+		$value =~ s/\\"/"/g;
+		$value =~ s/\\n/\n/g;
+		$value =~ s/\\t/\t/g;
+		$value =~ s/\\([0-7]{1,3})/sprintf("%c",oct($1))/ge;
+		$value =~ s/\\x([0-9a-f][0-9a-f]?)/sprintf("%c",hex($1))/ge;
+		$value =~ s/\\x\{([0-9a-f]+)\}/sprintf("%c",hex($1))/ge;
+		$value =~ s/\x{fdd0}/\\/g;
+		$value = $self->expand($value, $stack->[0]);
+	    }
 	    else {
-		$value = $1 if $value =~ /^"(.*)"\s*$/;
 		$value = $self->expand($value, $stack->[0]);
 	    }
 
@@ -514,7 +528,7 @@ sub set_property {
     my ($self, $prop, $value) = @_;
     my $props = $self->{_props};
     $props->{lc($prop)} = $value;
-    my @prop = split(/\./, $prop);
+    my @prop = split(/\./, $prop, -1);
     while ( @prop ) {
 	my $last = pop(@prop);
 	my $p = lc(join(".", @prop, '@'));
@@ -581,12 +595,71 @@ sub result_in_context {
     $self->{_in_context};
 }
 
+=item data [ I<start> ]
+
+Produces a Perl data structure created from all the properties from a
+given point in the hierarchy.
+
+Note that since Perl hashes do not have an ordering, this information
+will get lost.
+
+=cut
+
+sub data {
+    my ($self, $start) = ( @_, '' );
+    my $ret = $self->_data_internal($start);
+    $ret;
+}
+
+sub _data_internal {
+    my ( $self, $orig ) = @_;
+    my $cur = $orig // '';
+    $cur .= "." if $cur ne '';
+    my $all = $cur;
+    $all .= '@';
+    if ( my $res = $self->{_props}->{lc($all)} ) {
+	if ( _check_array($res) ) {
+	    my $ret = [];
+	    foreach my $prop ( @$res ) {
+		$ret->[$prop] = $self->_data_internal($cur.$prop);
+	    }
+	    return $ret;
+	}
+	else {
+	    my $ret = {};
+	    foreach my $prop ( @$res ) {
+		$ret->{$prop} = $self->_data_internal($cur.$prop);
+	    }
+	    return $ret;
+	}
+    }
+    else {
+	my $val = $self->{_props}->{lc($orig)};
+	$val = $self->expand($val) if defined $val;
+	return $val;
+    }
+}
+
+sub _check_array {
+    my ( $i ) = @_;
+    my @i = @$i;
+    return unless "@i" =~ /^[\d ]+$/; # quick
+    my $ref = 0;
+    for ( @i) {
+	return unless $_ eq "$ref";
+	$ref++;
+    }
+    return 1;			# success!
+}
+
 =item dump [ I<start> [ , I<stream> ] ]
 
-Produce a listing of all properties from a given point in the
+Produces a listing of all properties from a given point in the
 hierarchy and write it to the I<stream>.
 
-I<stream> defaults to C<*STDOUT>.
+Without I<stream>, returns a string.
+
+In general, I<stream> should be UTF-8 capable.
 
 =item dumpx [ I<start> [ , I<stream> ] ]
 
@@ -598,7 +671,7 @@ my $dump_expanded;
 
 sub dump {
     my ($self, $start, $fh) = ( @_, '' );
-    my $ret = $self->_dump_internal($fh, $start);
+    my $ret = $self->_dump_internal($start);
     print $fh $ret if $fh;
     $ret;
 }
@@ -614,7 +687,7 @@ sub dumpx {
 # internal
 
 sub _dump_internal {
-    my ($self, $fh, $cur) = @_;
+    my ($self, $cur) = @_;
     $cur .= "." if $cur;
     my $all = $cur;
     $all .= '@';
@@ -622,7 +695,7 @@ sub _dump_internal {
     if ( my $res = $self->{_props}->{lc($all)} ) {
 	$ret .= "# $all = @$res\n" if @$res > 1;
 	foreach my $prop ( @$res ) {
-	    $ret .= $self->_dump_internal($fh, $cur.$prop);
+	    $ret .= $self->_dump_internal($cur.$prop);
 	    my $val = $self->{_props}->{lc($cur.$prop)};
 	    $val = $self->expand($val) if $dump_expanded;
 	    next unless defined $val;
@@ -632,6 +705,7 @@ sub _dump_internal {
     }
     $ret;
 }
+
 
 ################ Package End ################
 
@@ -662,8 +736,17 @@ Property I<names> consist of one or more identifiers (series of
 letters and digits) separated by periods.
 
 Valid values are a plain text (whitespace, but not trailing, allowed),
-a single-quoted string, or a double-quoted string (which will allow
-escape characters like \n and so in a future version).
+a single-quoted string, or a double-quoted string. Single-quoted
+strings allow embedded single-quotes by escaping them with a backslash
+C<\>. Double-quoted strings allow common escapes like C<\n>, C<\t>,
+C<\7>, C<\x1f> and C<\x{20cd}>.
+
+Note that in plain text backslashes are taken literally. The following
+alternatives yield the same results:
+
+    foo = a'\nb
+    foo = 'a\'\nb'
+    foo = "a'\\nb"
 
 B<IMPORTANT:> All values are strings. There is no distinction between
 
@@ -695,6 +778,23 @@ grouped in a I<context>:
     }
 
 Contexts may be nested.
+
+=head2 Arrays
+
+When a property has a number of sub-properties with keys that are
+consecutive numbers starting at C<0>, it may be considered as an
+array. This is only relevant when using the data() method to retrieve
+a Perl data structure from the set of properties.
+
+    list {
+       0 = aap
+       1 = noot
+       2 = mies
+    }
+
+When retrieved using data(), this returns the Perl structure
+
+    [ "aap", "noot", "mies" ]
 
 =head2 Includes
 

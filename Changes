@@ -2,6 +2,9 @@ Revision history for Data-Properties
 
 1.01
 	Make ${foo:bar} work.
+	Add 'null' and testing for it.
+	Add arrays and data() export.
+	Handle string escapes just like Perl.
 
 1.00    2020-09-05
         First version, released on an unsuspecting world.
