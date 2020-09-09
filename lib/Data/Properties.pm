@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Sep  8 22:32:40 2020
-# Update Count    : 427
+# Last Modified On: Wed Sep  9 11:09:26 2020
+# Update Count    : 462
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -278,26 +278,115 @@ sub _parse_file_internal {
 
 # internal
 
+sub _value {
+    my ( $self, $value, $ctx ) = @_;
+
+    # Single-quoted string.
+    if ( $value =~ /^'(.*)'\s*$/ ) {
+	$value = $1;
+	$value =~ s/\\\\/\x{fdd0}/g;
+	$value =~ s/\\'/'/g;
+	$value =~ s/\x{fdd0}/\\/g;
+	return $value;
+    }
+
+    if ( lc($value) eq "null" ) {
+	return;
+    }
+    if ( lc($value) eq "true" ) {
+	return 1;
+    }
+    if ( lc($value) eq "false" ) {
+	return 0;
+    }
+
+    if ( $value =~ /^"(.*)"\s*$/ ) {
+	$value = $1;
+	$value =~ s/\\\\/\x{fdd0}/g;
+	$value =~ s/\\"/"/g;
+	$value =~ s/\\n/\n/g;
+	$value =~ s/\\t/\t/g;
+	$value =~ s/\\([0-7]{1,3})/sprintf("%c",oct($1))/ge;
+	$value =~ s/\\x([0-9a-f][0-9a-f]?)/sprintf("%c",hex($1))/ge;
+	$value =~ s/\\x\{([0-9a-f]+)\}/sprintf("%c",hex($1))/ge;
+	$value =~ s/\x{fdd0}/\\/g;
+	return $self->expand($value, $ctx);
+    }
+
+    $self->expand($value, $ctx);
+}
+
 sub _parse_lines_internal {
 
     my ( $self, $lines, $filename, $context ) = @_;
 
-    my $stack = $context ? [ $context ] : [];
+    my @stack = $context ? ( [$context, undef] ) : ();
 
     # Process its contents.
     my $lineno = 0;
     foreach ( @$lines ) {
 	$lineno++;
 
-	# Discard empty lines and comment lines/
+	#### Discard empty lines and comment lines/
 	next if /^\s*#/;
 	next unless /\S/;
 	chomp;
 
+	#### Controls
+	# include filename
+
+	# include filename
+	if ( /^\s*include\s+((?![:=]).+)/ ) {
+	    my $value = $self->_value( $1, $stack[0] );
+	    $self->_parse_file_internal($value, $stack[0]);
+	    next;
+	}
+
+
+	#### Settings
+	# key = value
+	# key {
+	# key [
+	# value
+	# ]
+	# }
+
+	# foo.bar {
+	# foo.bar [
+	# Push a new context.
+	if ( /^\s*([-\w.]+)\s*([{\[])\s*$/ ) {
+	    my ( $c, $i ) = ( $1, $2 eq '[' ? 0 : undef );
+	    @stack = ( [ $c, $i ] ), next unless @stack;
+	    unshift( @stack, [ $stack[0]->[0] . "." . $c, $i ] );
+	    next;
+	}
+
+	# {
+	# [
+	# Push a new context while building an array.
+	if ( @stack && defined($stack[0]->[1])	# building array
+	     && /^\s*([{\[])\s*$/ ) {
+	    my $i = $1 eq '[' ? 0 : undef;
+	    unshift( @stack, [ $stack[0]->[0] . "." . $stack[0]->[1]++, $i ] );
+	    next;
+	}
+
+	# }
+	# ]
+	# Pop context.
+	if ( /^\s*([}\]])\s*$/ ) {
+	    die("stack underflow at line $lineno")
+	      unless @stack
+	             && $1 eq defined($stack[0]->[1]) ? ']' : '}';
+	    shift(@stack);
+	    next;
+	}
+
 	# foo.bar = blech
 	# foo.bar = "blech"
 	# foo.bar = 'blech'
-	# Simple assignment. The value is expanded unless single quotes are used.
+	# Simple assignment.
+	# The value is expanded unless single quotes are used.
 	if ( /^\s*([-\w.]+|"[^"]*"|'[^']*')\s*[=:]\s*(.*)/ ) {
 	    my $prop = $1;
 	    my $value = $2;
@@ -305,74 +394,31 @@ sub _parse_lines_internal {
 	    $value =~ s/\s+$//;
 
 	    # Make a full name.
+	    $prop = $stack[0]->[0] . "." . $prop if @stack;
 
-	    $prop = $stack->[0] . "." . $prop if @$stack;
-
-	    # Handle strings.
-	    if ( $value =~ /^'(.*)'\s*$/ ) {
-		$value = $1;
-		$value =~ s/\\\\/\x{fdd0}/g;
-		$value =~ s/\\'/'/g;
-		$value =~ s/\x{fdd0}/\\/g;
-	    }
-	    elsif ( lc($value) eq "null" ) {
-		$value = undef;
-	    }
-	    elsif ( lc($value) eq "true" ) {
-		$value = 1;
-	    }
-	    elsif ( lc($value) eq "false" ) {
-		$value = 0;
-	    }
-	    elsif ( $value =~ /^"(.*)"\s*$/ ) {
-		$value = $1;
-		$value =~ s/\\\\/\x{fdd0}/g;
-		$value =~ s/\\"/"/g;
-		$value =~ s/\\n/\n/g;
-		$value =~ s/\\t/\t/g;
-		$value =~ s/\\([0-7]{1,3})/sprintf("%c",oct($1))/ge;
-		$value =~ s/\\x([0-9a-f][0-9a-f]?)/sprintf("%c",hex($1))/ge;
-		$value =~ s/\\x\{([0-9a-f]+)\}/sprintf("%c",hex($1))/ge;
-		$value =~ s/\x{fdd0}/\\/g;
-		$value = $self->expand($value, $stack->[0]);
-	    }
-	    else {
-		$value = $self->expand($value, $stack->[0]);
-	    }
-
+	    $value = $self->_value( $value, $stack[0] );
+ 
 	    # Set the property.
 	    $self->set_property($prop, $value);
 
 	    next;
 	}
 
-	# foo.bar {
-	# Push a new context.
-	if ( /^\s*([\w.]+)\s*{\s*$/ ) {
-	    unshift(@$stack, @$stack ? $stack->[0] . "." . $1 : $1);
-	    next;
-	}
-
-	# include filename
-	if ( /^\s*include\s+(.+)/ ) {
+	# value (while building an array)
+	if ( @stack && defined($stack[0]->[1])	# building array
+	     && /^\s*(.*)/ ) {
+	    my $ix = $stack[0]->[1]++;
 	    my $value = $1;
-	    # Handle strings.
-	    if ( $value =~ /^'(.*)'\s*$/ ) {
-		$value = $1;
-	    }
-	    else {
-		$value = $1 if $value =~ /^"(.*)"\s*$/;
-		$value = $self->expand($value, $stack->[0]);
-	    }
-	    $self->_parse_file_internal($value, $stack->[0]);
-	    next;
-	}
+	    $value =~ s/\s+$//;
 
-	# }
-	# Pop context.
-	if ( /^\s*}\s*$/ ) {
-	    die("stack underflow at line $lineno") unless @$stack;
-	    shift(@$stack);
+	    # Make a full name.
+	    my $prop = $stack[0]->[0] . "." . $ix;
+
+	    $value = $self->_value( $value, $stack[0] );
+ 
+	    # Set the property.
+	    $self->set_property($prop, $value);
+
 	    next;
 	}
 
@@ -381,7 +427,8 @@ sub _parse_lines_internal {
     }
 
     # Sanity checks.
-    croak("Unfinished properties $filename") if @$stack != ($context ? 1 : 0);
+    croak("Unfinished properties $filename")
+      if @stack != ($context ? 1 : 0);
 }
 
 =item get_property I<prop> [ , I<default> ]
@@ -492,6 +539,7 @@ sub expand {
 
 sub _interpolate {
     my ( $self, $tpl, $ctx ) = @_;
+    ( $ctx, my $ix ) = @$ctx if $ctx;
     my $props = $self->{_props};
     return interpolate( { activator => '$',
 			  keypattern => qr/\.?\w+[-_\w.]*\??(?::.*)?/,
@@ -710,9 +758,19 @@ sub _dump_internal {
 	    $ret .= $self->_dump_internal($cur.$prop);
 	    my $val = $self->{_props}->{lc($cur.$prop)};
 	    $val = $self->expand($val) if $dump_expanded;
-	    next unless defined $val;
-	    $val =~ s/(\\\')/\\$1/g;
-	    $ret .= "$cur$prop = '$val'\n";
+	    if ( !defined $val ) {
+		$ret .= "$cur$prop = null\n";
+	    }
+	    elsif ( $val =~ /[\n\t]/ ) {
+		$val =~ s/(["\\])/\\$1/g;
+		$val =~ s/\n/\\n/g;
+		$val =~ s/\t/\\t/g;
+		$ret .= "$cur$prop = \"$val\"\n";
+	    }
+	    else {
+		$val =~ s/(\\\')/\\$1/g;
+		$ret .= "$cur$prop = '$val'\n";
+	    }
 	}
     }
     $ret;
