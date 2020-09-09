@@ -15,6 +15,8 @@ EOD
 
 is( $cfg->dump, <<EOD );
 # @ = a b x c d
+a = null
+b = null
 x = ''
 c = 'null'
 d = 'null'

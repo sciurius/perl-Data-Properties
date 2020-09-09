@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Sep  9 11:09:26 2020
-# Update Count    : 462
+# Last Modified On: Wed Sep  9 13:32:20 2020
+# Update Count    : 492
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -90,6 +90,7 @@ lightweight so shell scripts can use it to query properties.
 
 our $VERSION = "1.0";
 
+use Text::ParseWords qw(parse_line);
 use File::LoadLines;
 use String::Interpolate::Named;
 use Carp;
@@ -279,7 +280,7 @@ sub _parse_file_internal {
 # internal
 
 sub _value {
-    my ( $self, $value, $ctx ) = @_;
+    my ( $self, $value, $ctx, $noexpand ) = @_;
 
     # Single-quoted string.
     if ( $value =~ /^'(.*)'\s*$/ ) {
@@ -310,9 +311,11 @@ sub _value {
 	$value =~ s/\\x([0-9a-f][0-9a-f]?)/sprintf("%c",hex($1))/ge;
 	$value =~ s/\\x\{([0-9a-f]+)\}/sprintf("%c",hex($1))/ge;
 	$value =~ s/\x{fdd0}/\\/g;
+	return $value if $noexpand;
 	return $self->expand($value, $ctx);
     }
 
+    return $value if $noexpand;
     $self->expand($value, $ctx);
 }
 
@@ -321,6 +324,7 @@ sub _parse_lines_internal {
     my ( $self, $lines, $filename, $context ) = @_;
 
     my @stack = $context ? ( [$context, undef] ) : ();
+    my $keypat = qr/[-\w.]+|"[^"]*"|'[^']*'/;
 
     # Process its contents.
     my $lineno = 0;
@@ -330,13 +334,14 @@ sub _parse_lines_internal {
 	#### Discard empty lines and comment lines/
 	next if /^\s*#/;
 	next unless /\S/;
-	chomp;
+	s/^\s+//;
+	s/\s+$//;
 
 	#### Controls
 	# include filename
 
 	# include filename
-	if ( /^\s*include\s+((?![:=]).+)/ ) {
+	if ( /^include\s+(.+)/ ) {
 	    my $value = $self->_value( $1, $stack[0] );
 	    $self->_parse_file_internal($value, $stack[0]);
 	    next;
@@ -354,10 +359,28 @@ sub _parse_lines_internal {
 	# foo.bar {
 	# foo.bar [
 	# Push a new context.
-	if ( /^\s*([-\w.]+)\s*([{\[])\s*$/ ) {
-	    my ( $c, $i ) = ( $1, $2 eq '[' ? 0 : undef );
+	if ( /^($keypat)\s*([{\[])$/ ) {
+	    my $c = $self->_value( $1, undef, "noexpand" );
+	    my $i = $2 eq '[' ? 0 : undef;
 	    @stack = ( [ $c, $i ] ), next unless @stack;
 	    unshift( @stack, [ $stack[0]->[0] . "." . $c, $i ] );
+	    next;
+	}
+
+	# foo.bar [ val val ]
+	# Create an array
+	if ( /^($keypat)\s*\[(.*)\]$/ ) {
+	    my $prop = $self->_value( $1, undef, "noexpand" );
+	    my $v = $2;
+	    $v =~ s/^\s+//;
+	    $v =~ s/\s+$//;
+	    my $ix = 0;
+	    for my $value ( parse_line( '\s+', 1, $v ) ) {
+		my $prop = $prop;
+		$prop = $stack[0]->[0] . "." . $prop if @stack;
+		$value = $self->_value( $value, $stack[0] );
+		$self->set_property( $prop . "." . $ix++, $value );
+	    }
 	    next;
 	}
 
@@ -365,7 +388,7 @@ sub _parse_lines_internal {
 	# [
 	# Push a new context while building an array.
 	if ( @stack && defined($stack[0]->[1])	# building array
-	     && /^\s*([{\[])\s*$/ ) {
+	     && /^([{\[])$/ ) {
 	    my $i = $1 eq '[' ? 0 : undef;
 	    unshift( @stack, [ $stack[0]->[0] . "." . $stack[0]->[1]++, $i ] );
 	    next;
@@ -374,7 +397,7 @@ sub _parse_lines_internal {
 	# }
 	# ]
 	# Pop context.
-	if ( /^\s*([}\]])\s*$/ ) {
+	if ( /^([}\]])$/ ) {
 	    die("stack underflow at line $lineno")
 	      unless @stack
 	             && $1 eq defined($stack[0]->[1]) ? ']' : '}';
@@ -387,38 +410,31 @@ sub _parse_lines_internal {
 	# foo.bar = 'blech'
 	# Simple assignment.
 	# The value is expanded unless single quotes are used.
-	if ( /^\s*([-\w.]+|"[^"]*"|'[^']*')\s*[=:]\s*(.*)/ ) {
-	    my $prop = $1;
-	    my $value = $2;
-	    $prop = $2 if $prop =~ /^(["'])(.*)\1$/;
-	    $value =~ s/\s+$//;
+	if ( /^($keypat)\s*[=:]\s*(.*)/ ) {
+	    my $prop = $self->_value( $1, undef, "noexpand" );
+	    my $value = $self->_value( $2, $stack[0] );
 
 	    # Make a full name.
 	    $prop = $stack[0]->[0] . "." . $prop if @stack;
 
-	    $value = $self->_value( $value, $stack[0] );
- 
 	    # Set the property.
 	    $self->set_property($prop, $value);
 
 	    next;
 	}
 
-	# value (while building an array)
-	if ( @stack && defined($stack[0]->[1])	# building array
-	     && /^\s*(.*)/ ) {
-	    my $ix = $stack[0]->[1]++;
-	    my $value = $1;
-	    $value =~ s/\s+$//;
+	# value(s) (while building an array)
+	if ( @stack && defined($stack[0]->[1]) ) {
 
-	    # Make a full name.
-	    my $prop = $stack[0]->[0] . "." . $ix;
+	    for my $value ( parse_line( '\s+', 1, $_ ) ) {
+		# Make a full name.
+		my $prop = $stack[0]->[0] . "." . $stack[0]->[1]++;
 
-	    $value = $self->_value( $value, $stack[0] );
- 
-	    # Set the property.
-	    $self->set_property($prop, $value);
+		$value = $self->_value( $value, $stack[0] );
 
+		# Set the property.
+		$self->set_property($prop, $value);
+	    }
 	    next;
 	}
 
@@ -661,7 +677,7 @@ Produces a Perl data structure created from all the properties from a
 given point in the hierarchy.
 
 Note that since Perl hashes do not have an ordering, this information
-will get lost.
+will get lost. Also, properties can not have both a value and a substructure.
 
 =cut
 
@@ -755,11 +771,13 @@ sub _dump_internal {
     if ( my $res = $self->{_props}->{lc($all)} ) {
 	$ret .= "# $all = @$res\n" if @$res > 1;
 	foreach my $prop ( @$res ) {
-	    $ret .= $self->_dump_internal($cur.$prop);
+	    my $t = $self->_dump_internal($cur.$prop);
+	    $ret .= $t if defined($t) && $t ne '';
 	    my $val = $self->{_props}->{lc($cur.$prop)};
 	    $val = $self->expand($val) if $dump_expanded;
 	    if ( !defined $val ) {
-		$ret .= "$cur$prop = null\n";
+		$ret .= "$cur$prop = null\n"
+		  unless defined($t) && $t ne '';
 	    }
 	    elsif ( $val =~ /[\n\t]/ ) {
 		$val =~ s/(["\\])/\\$1/g;

@@ -17,6 +17,7 @@ WriteMakefile(
         'Test::More' => 0,
 	'File::LoadLines' => 0.02,
 	'String::Interpolate::Named' => 1.01,
+	'Text::ParseWords' => 0,
     },
     META_MERGE => {
       resources    => {

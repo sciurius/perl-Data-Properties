@@ -68,21 +68,9 @@ settings {
 # The separator is used to concatenate multiple values.
 metadata {
   keys [
-    "title"
-    "subtitle"
-    "artist"
-    "composer"
-    "lyricist"
-    "arranger"
-    "album"
-    "copyright"
-    "year"
-    "sorttitle"
-    "key"
-    "time"
-    "tempo"
-    "capo"
-    "duration"
+	"title" "subtitle" "artist" "composer" "lyricist" "arranger"
+	"album" "copyright" "year" "sorttitle"
+	"key" "time" "tempo" "capo" "duration"
   ]
   strict = true
   separator = "; "
@@ -108,23 +96,21 @@ diagnostics {
 # Table of contents.
 contents [
   {
-    fields.0 = "songindex"
+    fields   = [ "songindex" ]
     label    = "Table of Contents"
     line     = "%{title}"
     fold     = false
     omit     = false
   }
   {
-    fields.0 = "sorttitle"
-    fields.1 = "artist"
+    fields   = [ "sorttitle" "artist" ]
     label    = "Contents by Title"
     line     = "%{title}%{artist| - %{}}"
     fold     = false
     omit     = false
   }
   {
-    fields.0 = "artist"
-    fields.1 = "sorttitle"
+    fields   = [ "artist" "sorttitle" ]
     label    = "Contents by Artist"
     line     = "%{artist|%{} - }%{title}"
     fold     = false
@@ -145,83 +131,35 @@ toc {
 # Intrument definitions.
 
 instrument : null
-tuning [
-  "E2"
-  "A2"
-  "D3"
-  "G3"
-  "B3"
-  "E4"
-]
+tuning [ "E2" "A2" "D3" "G3" "B3" "E4" ]
+
 notes {
   flat [
          "C"
-         [
-            "Db"
-            "Des"
-            "D♭"
-         ]
+         ["Db" "Des" "D♭"]
          "D"
-         [
-            "Eb"
-            "Es"
-            "Ees"
-            "E♭"
-         ]
+         ["Eb" "Es" "Ees" "E♭"]
          "E"
          "F"
-         [
-            "Gb"
-            "Ges"
-            "G♭"
-         ]
+         ["Gb" "Ges" "G♭"]
          "G"
-         [
-            "Ab"
-            "As"
-            "Aes"
-            "A♭"
-         ]
+         ["Ab" "As" "Aes" "A♭"]
          "A"
-         [
-            "Bb"
-            "Bes"
-            "B♭"
-         ]
+         ["Bb" "Bes" "B♭"]
          "B"
   ]
   sharp [
          "C"
-         [
-            "C#"
-            "Cis"
-            "C♯"
-         ]
+         ["C#" "Cis" "C♯"]
          "D"
-         [
-            "D#"
-            "Dis"
-            "D♯"
-         ]
+         ["D#" "Dis" "D♯"]
          "E"
          "F"
-         [
-            "F#"
-            "Fis"
-            "F♯"
-         ]
+         ["F#" "Fis" "F♯"]
          "G"
-         [
-            "G#"
-            "Gis"
-            "G♯"
-         ]
+         ["G#" "Gis" "G♯"]
          "A"
-         [
-            "A#"
-            "Ais"
-            "A♯"
-         ]
+	 ["A#" "Ais" "A♯"]
          "B"
   ]
   system : "common"
@@ -379,11 +317,7 @@ pdf {
   # 'repeat' is printed repeatedly to fill the rest.
   # If split-marker is a single string, this is 'start'.
   # All elements may be left empty strings.
-  split-marker [
-    ""
-    ""
-    ""
-  ]
+  split-marker [ "" "" "" ]
 
   # Font families and properties.
   # "fontconfig" maps members of font families to physical fonts.
@@ -499,8 +433,7 @@ pdf {
   # omit:     ignore this
   outlines [
     {
-      fields.0 = "sorttitle"
-      fields.1 = "artist"
+      fields   = [ "sorttitle" "artist" ]
       label    = "By Title"
       line     = "%{title}%{artist| - %{}}"
       collapse = false
@@ -508,8 +441,7 @@ pdf {
       fold     = false
     }
     {
-      fields.0 = "artist"
-      fields.1 = "sorttitle"
+      fields   = [ "artist" "sorttitle" ]
       label    = "By Artist"
       line     = "%{artist|%{} - }%{title}"
       collapse = false
