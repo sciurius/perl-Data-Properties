@@ -67,7 +67,7 @@ settings {
 # Important: "title" and "subtitle" must always be in this list.
 # The separator is used to concatenate multiple values.
 metadata {
-  keys [
+  keys = [
 	"title" "subtitle" "artist" "composer" "lyricist" "arranger"
 	"album" "copyright" "year" "sorttitle"
 	"key" "time" "tempo" "capo" "duration"
@@ -94,7 +94,7 @@ diagnostics {
 }
 
 # Table of contents.
-contents [
+contents = [
   {
     fields   = [ "songindex" ]
     label    = "Table of Contents"
@@ -131,10 +131,10 @@ toc {
 # Intrument definitions.
 
 instrument : null
-tuning [ "E2" "A2" "D3" "G3" "B3" "E4" ]
+tuning = [ "E2" "A2" "D3" "G3" "B3" "E4" ]
 
 notes {
-  flat [
+  flat = [
          "C"
          ["Db" "Des" "D♭"]
          "D"
@@ -148,7 +148,7 @@ notes {
          ["Bb" "Bes" "B♭"]
          "B"
   ]
-  sharp [
+  sharp = [
          "C"
          ["C#" "Cis" "C♯"]
          "D"
@@ -317,7 +317,7 @@ pdf {
   # 'repeat' is printed repeatedly to fill the rest.
   # If split-marker is a single string, this is 'start'.
   # All elements may be left empty strings.
-  split-marker [ "" "" "" ]
+  split-marker = [ "" "" "" ]
 
   # Font families and properties.
   # "fontconfig" maps members of font families to physical fonts.
@@ -431,7 +431,7 @@ pdf {
   # letter:   sublevel with first letters if more
   # fold:     group by primary (NYI)
   # omit:     ignore this
-  outlines [
+  outlines = [
     {
       fields   = [ "sorttitle" "artist" ]
       label    = "By Title"

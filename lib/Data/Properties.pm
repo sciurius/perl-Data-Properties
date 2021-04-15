@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Wed Sep  9 13:32:20 2020
-# Update Count    : 492
+# Last Modified On: Thu Apr 15 22:44:01 2021
+# Update Count    : 533
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -153,6 +153,12 @@ sub _constructor {
 	elsif ( $k eq "_debug" ) {
 	    $self->{_debug} = 1;
 	}
+	elsif ( $k eq "_noinc" ) {
+	    $self->{_noinc} = 1;
+	}
+	elsif ( $k eq "_raw" ) {
+	    $self->{_raw} = 1;
+	}
 	else {
 	    $self->set_property($k, $v);
 	}
@@ -291,6 +297,10 @@ sub _value {
 	return $value;
     }
 
+    if ( $self->{_raw} && $value =~ /^(null|false|true)$/ ) {
+	return $value;
+    }
+
     if ( lc($value) eq "null" ) {
 	return;
     }
@@ -328,25 +338,25 @@ sub _parse_lines_internal {
 
     # Process its contents.
     my $lineno = 0;
-    foreach ( @$lines ) {
+    while ( @$lines ) {
 	$lineno++;
+	$_ = shift(@$lines);
 
 	#### Discard empty lines and comment lines/
 	next if /^\s*#/;
 	next unless /\S/;
+
+	#### Trim.
 	s/^\s+//;
 	s/\s+$//;
 
 	#### Controls
 	# include filename
-
-	# include filename
-	if ( /^include\s+(.+)/ ) {
+	if ( /^include\s+(.+)/ && !$self->{_noinc} ) {
 	    my $value = $self->_value( $1, $stack[0] );
 	    $self->_parse_file_internal($value, $stack[0]);
 	    next;
 	}
-
 
 	#### Settings
 	# key = value
@@ -359,7 +369,14 @@ sub _parse_lines_internal {
 	# foo.bar {
 	# foo.bar [
 	# Push a new context.
-	if ( /^($keypat)\s*([{\[])$/ ) {
+	if ( /^($keypat)\s*([{])$/ ) {
+	    my $c = $self->_value( $1, undef, "noexpand" );
+	    my $i = $2 eq '[' ? 0 : undef;
+	    @stack = ( [ $c, $i ] ), next unless @stack;
+	    unshift( @stack, [ $stack[0]->[0] . "." . $c, $i ] );
+	    next;
+	}
+	if ( /^($keypat)\s*[:=]\s*([[])$/ ) {
 	    my $c = $self->_value( $1, undef, "noexpand" );
 	    my $i = $2 eq '[' ? 0 : undef;
 	    @stack = ( [ $c, $i ] ), next unless @stack;
@@ -367,17 +384,42 @@ sub _parse_lines_internal {
 	    next;
 	}
 
-	# foo.bar [ val val ]
+	# foo.bar = [ val val ]
+	# foo.bar = [ val
+	#             val ]
+	# foo.bar = [ val val
+	#           ]
+	# BUT NOT
+	# foo.bar = [
+	#             val val ]
 	# Create an array
-	if ( /^($keypat)\s*\[(.*)\]$/ ) {
+	# Add lines, if necessary.
+	while ( /^($keypat)\s*[=:]\s*\[(.+)$/ && $2 !~ /\]\s*$/ && @$lines ) {
+	    $_ .= " " . shift(@$lines);
+	    $lineno++;
+	}
+	if ( /^($keypat)\s*[:=]\s*\[(.*)\]$/ ) {
 	    my $prop = $self->_value( $1, undef, "noexpand" );
+	    $prop = $stack[0]->[0] . "." . $prop if @stack;
 	    my $v = $2;
 	    $v =~ s/^\s+//;
 	    $v =~ s/\s+$//;
 	    my $ix = 0;
 	    for my $value ( parse_line( '\s+', 1, $v ) ) {
-		my $prop = $prop;
-		$prop = $stack[0]->[0] . "." . $prop if @stack;
+		$value = $self->_value( $value, $stack[0] );
+		$self->set_property( $prop . "." . $ix++, $value );
+	    }
+	    $self->set_property( $prop, undef ) unless $ix;
+	    next;
+	}
+
+	if ( /^\s*\[(.*)\]$/ && @stack && $stack[0][1] ) {
+	    my $prop = $stack[0][0] . "." . $stack[0][1]++;
+	    my $v = $1;
+	    $v =~ s/^\s+//;
+	    $v =~ s/\s+$//;
+	    my $ix = 0;
+	    for my $value ( parse_line( '\s+', 1, $v ) ) {
 		$value = $self->_value( $value, $stack[0] );
 		$self->set_property( $prop . "." . $ix++, $value );
 	    }
@@ -794,6 +836,52 @@ sub _dump_internal {
     $ret;
 }
 
+=for later
+
+package Tokenizer;
+
+sub new {
+    my ( $pkg, $lines ) = @_;
+    bless { _line   => "",
+	    _token  => undef,
+	    _lineno => 0,
+	    _lines  => $lines,
+	  } => $pkg;
+}
+
+sub next {
+    my ( $self ) = @_;
+    while ( $self->{_line} !~ /\S/ && @{$self->{_lines} } ) {
+	$self->{_line} = shift(@{ $self->{_lines} });
+	$self->{_lineno}++;
+	$self->{_line} = "" if $self->{_line} =~ /^\s*#/;
+    }
+    return $self->{_token} = undef unless $self->{_line} =~ /\S/;
+
+    $self->{_line} =~ s/^\s+//;
+
+    if ( $self->{_line} =~ s/^([\[\]\{\}=:])// ) {
+	return $self->{_token} = $1;
+    }
+
+    # Double quoted string.
+    if ( $self->{_line} =~ s/^ " ((?>[^\\"]*(?:\\.[^\\"]*)*)) " //xs ) {
+	return $self->{_token} = qq{"$1"};
+    }
+
+    # Single quoted string.
+    if ( $self->{_line} =~ s/^ ' ((?>[^\\']*(?:\\.[^\\']*)*)) ' //xs ) {
+	return $self->{_token} = qq{'$1'}
+    }
+
+    $self->{_line} =~ s/^([^\[\]\{\}=:"'\s]+)//;
+    return $self->{_token} = $1;
+}
+
+sub token { $_[0]->{_token } }
+sub lineno { $_[0]->{_lineno } }
+
+=cut
 
 ################ Package End ################
 
@@ -883,6 +971,13 @@ a Perl data structure from the set of properties.
 When retrieved using data(), this returns the Perl structure
 
     [ "aap", "noot", "mies" ]
+
+For convenience, arrays can be input in several more concise ways:
+
+    list [ aap noot mies ]
+    list [ aap
+           noot
+           mies ]
 
 =head2 Includes
 
