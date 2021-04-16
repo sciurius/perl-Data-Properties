@@ -1,10 +1,13 @@
 Revision history for Data-Properties
 
-1.02
+1.02	2020-04-16
+
 	Arrays with simple contents may go on a single line.
 	Add option to prevent include handling.
+	Add prp2json script. Also dumps perl and properties.
 
-1.01
+1.01	2020-09-09
+
 	Make ${foo:bar} work.
 	Add 'null' and testing for it.
 	Add arrays and data() export.
