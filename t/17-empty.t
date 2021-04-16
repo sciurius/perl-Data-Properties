@@ -30,8 +30,6 @@ a = [ ]
 }
 EOD
 
-use DDumper; DDumper($cfg);
-
 is( $cfg->dump, <<EOD );
 x.a = null
 EOD

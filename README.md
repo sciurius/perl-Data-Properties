@@ -11,7 +11,8 @@ you can fetch the list of its subkeys, and so on. Moreover, the list
 of subkeys is returned in the order the properties were defined.
 
 Data::Properties can also be used to define data structures, just like
-JSON but with much less quotes.
+JSON but with much less quotes. Note that only scalar values and
+arrays are possible.
 
 ## Example of Usage
 
@@ -85,9 +86,20 @@ You can find documentation for this module with the perldoc command.
 Please report any bugs or feature requests using the issue tracker on
 GitHub.
 
+## Acknowledgements
+
+This module was initially developed in 1994 as part of the Multihouse
+MH-Doc (later: MMDS) software suite. Multihouse kindly waived copyrights.
+
+In 2002 it was revamped as part of the Compuware OptimalJ development
+process. Compuware kindly waived copyrights.
+
+In 2020 it was updated to support arrays and released to the general
+public.
+
 ## Copyright and Licence
 
-Copyright (C) 2020 Johan Vromans
+Copyright (C) 1994,2002,2020 Johan Vromans
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

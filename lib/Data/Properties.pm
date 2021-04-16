@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Thu Apr 15 22:44:01 2021
-# Update Count    : 533
+# Last Modified On: Fri Apr 16 19:15:09 2021
+# Update Count    : 537
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -924,13 +924,13 @@ alternatives yield the same results:
     foo = 'a\'\nb'
     foo = "a'\\nb"
 
-B<IMPORTANT:> All values are strings. There is no distinction between
+B<IMPORTANT:> All values are strings. These three are equivalent:
 
     foo = 1
     foo = "1"
     foo = '1'
 
-and
+and so are these:
 
     foo = Hello World!
     foo = "Hello World!"
@@ -974,10 +974,18 @@ When retrieved using data(), this returns the Perl structure
 
 For convenience, arrays can be input in several more concise ways:
 
-    list [ aap noot mies ]
-    list [ aap
-           noot
-           mies ]
+    list = [ aap noot mies ]
+    list = [ aap
+             noot
+             mies ]
+
+The opening bracket must be followed by one or move values. This will
+currently not work:
+
+    list = [
+             aap
+             noot
+             mies ]
 
 =head2 Includes
 
@@ -997,9 +1005,9 @@ prefix.
 
 =head2 Expansion
 
-Property values can be anything. Unless the value is placed between
-single quotes C<''>, the value will be I<expanded> before being assigned
-to the property.
+Property values can be anything. The value will be I<expanded> before
+being assigned to the property unless it is placed between single
+quotes C<''>.
 
 Expansion means:
 
@@ -1045,7 +1053,7 @@ Expansion is delayed if single quotes are used around the value.
 
 Now C<a> and C<b> will be C<'1'>, but C<c> will be C<'2'>.
 
-Substitution is handled by String::Interpolate::Named. See its
+Substitution is handled by L<String::Interpolate::Named>. See its
 documentation for more power.
 
 In addition, you can test for a property being defined (not null) by
@@ -1083,8 +1091,14 @@ GitHub.
 
 =head1 ACKNOWLEDGEMENTS
 
-This module was initially developed in 1994 as part of the MH-Doc
-(later: MMDS) software suite.
+This module was initially developed in 1994 as part of the Multihouse
+MH-Doc (later: MMDS) software suite. Multihouse kindly waived copyrights.
+
+In 2002 it was revamped as part of the Compuware OptimalJ development
+process. Compuware kindly waived copyrights.
+
+In 2020 it was updated to support arrays and released to the general
+public.
 
 =head1 COPYRIGHT & LICENSE
 

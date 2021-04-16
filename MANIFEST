@@ -3,6 +3,7 @@ MANIFEST
 Makefile.PL
 README.md
 lib/Data/Properties.pm
+script/prp2json.pl
 t/00-load.t
 t/10-basic.t
 t/11-keys.t
