@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Fri Apr 16 19:15:09 2021
-# Update Count    : 537
+# Last Modified On: Fri Apr 16 19:42:04 2021
+# Update Count    : 538
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -88,7 +88,7 @@ lightweight so shell scripts can use it to query properties.
 
 =cut
 
-our $VERSION = "1.0";
+our $VERSION = "1.02";
 
 use Text::ParseWords qw(parse_line);
 use File::LoadLines;
