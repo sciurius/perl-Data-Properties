@@ -88,7 +88,7 @@ For convenience, arrays can be input in several more concise ways:
              noot
              mies ]
 
-The opening bracket must be followed by one or move values. This will
+The opening bracket must be followed by one or more values. This will
 currently not work:
 
     list = [
@@ -122,7 +122,7 @@ Expansion means:
 
 - A tilde `~` in what looks like a file name will be replaced by the
 value of `${HOME}`.
-- If the value contains `${_name_}`, _name_ is first looked up in the
+- If the value contains `${`_name_`}`, _name_ is first looked up in the
 current environment. If an environment variable _name_ can be found,
 its value is substituted.
 
@@ -130,14 +130,14 @@ its value is substituted.
     property and, if it exists and has a non-empty value, this value is
     substituted.
 
-    Otherwise, the `${_name_}` part is removed.
+    Otherwise, the `${`_name_`}` part is removed.
 
-    Note that if a property is referred as `${._name_}`, _name_ is
+    Note that if a property is referred as `${.`_name_}`, _name_ is
     looked up in the current context only.
 
     **Important:** Property lookup is case insensitive.
 
-- If the value contains `${_name_:_value_}`, _name_ is looked up as
+- If the value contains `${`_name_`:`_value_`}`, _name_ is looked up as
 described above. If, however, no suitable value can be found, _value_
 is substituted.
 
