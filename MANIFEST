@@ -2,6 +2,7 @@ Changes
 MANIFEST
 Makefile.PL
 README.md
+propfiles.md
 lib/Data/Properties.pm
 script/prp2json.pl
 t/00-load.t
