@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Fri Apr 16 19:42:04 2021
-# Update Count    : 538
+# Last Modified On: Mon Jul 12 09:45:23 2021
+# Update Count    : 541
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -88,7 +88,7 @@ lightweight so shell scripts can use it to query properties.
 
 =cut
 
-our $VERSION = "1.02";
+our $VERSION = "1.03";
 
 use Text::ParseWords qw(parse_line);
 use File::LoadLines;
@@ -351,8 +351,8 @@ sub _parse_lines_internal {
 	s/\s+$//;
 
 	#### Controls
-	# include filename
-	if ( /^include\s+(.+)/ && !$self->{_noinc} ) {
+	# include filename (only if at the line start, and not followed by =.
+	if ( /^include\s+((?![=:]).+)/ && !$self->{_noinc} ) {
 	    my $value = $self->_value( $1, $stack[0] );
 	    $self->_parse_file_internal($value, $stack[0]);
 	    next;
