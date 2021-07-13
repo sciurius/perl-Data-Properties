@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Mon Jul 12 09:45:23 2021
-# Update Count    : 541
+# Last Modified On: Tue Jul 13 08:32:55 2021
+# Update Count    : 543
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -88,7 +88,7 @@ lightweight so shell scripts can use it to query properties.
 
 =cut
 
-our $VERSION = "1.03";
+our $VERSION = "1.04";
 
 use Text::ParseWords qw(parse_line);
 use File::LoadLines;
@@ -979,7 +979,7 @@ For convenience, arrays can be input in several more concise ways:
              noot
              mies ]
 
-The opening bracket must be followed by one or move values. This will
+The opening bracket must be followed by one or more values. This will
 currently not work:
 
     list = [
@@ -1033,7 +1033,9 @@ Otherwise, the C<${I<name>}> part is removed.
 Note that if a property is referred as C<${.I<name>}>, I<name> is
 looked up in the current context only.
 
-B<Important:> Property lookup is case insensitive.
+B<Important:> Property lookup is case insensitive, B<except> for the
+names of environment variables B<except> on Microsoft Windows
+where environment variable names are looked up case insensitive.
 
 =item *
 

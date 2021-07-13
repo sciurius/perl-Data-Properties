@@ -15,7 +15,7 @@ WriteMakefile(
     PREREQ_PM => {
         'ExtUtils::MakeMaker' => 6.46, # for META_MERGE, LICENSE
         'Test::More' => 0,
-	'File::LoadLines' => 0.02,
+	'File::LoadLines' => 1.02,
 	'String::Interpolate::Named' => 1.01,
 	'Text::ParseWords' => 0,
     },
