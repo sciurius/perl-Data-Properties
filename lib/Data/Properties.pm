@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Tue Jul 13 08:32:55 2021
-# Update Count    : 543
+# Last Modified On: Fri Jul 16 08:23:14 2021
+# Update Count    : 545
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -88,7 +88,7 @@ lightweight so shell scripts can use it to query properties.
 
 =cut
 
-our $VERSION = "1.04";
+our $VERSION = "1.05";
 
 use Text::ParseWords qw(parse_line);
 use File::LoadLines;
@@ -110,6 +110,10 @@ in the resultant properties object.
 =cut
 
 sub new {
+    if ( ref($_[1]) ) {
+	# IX/Data-Properties.
+	croak("API Error -- Incompatible Data::Properties version");
+    }
     unshift(@_, 0);
     &_constructor;
 }
@@ -223,6 +227,17 @@ sub parse_lines {
 	warn(Data::Dumper->Dump([$self->{_props}],[qw(properties)]), "\n");
     }
     $self;
+}
+
+# Catch some calls that are not in this version of Data::Properties.
+sub load {
+    croak("API Error -- Incompatible Data::Properties version");
+}
+sub property_names {
+    croak("API Error -- Incompatible Data::Properties version");
+}
+sub store {
+    croak("API Error -- Incompatible Data::Properties version");
 }
 
 =item set_path I<paths>
