@@ -1,5 +1,7 @@
 # Data::Properties -- Flexible properties handling
 
+**Warning: This is NOT the CPAN Data::Properties module!**
+
 A flexible properties mechanism modelled after the Java implementation
 of properties.
 
