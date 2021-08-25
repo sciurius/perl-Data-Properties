@@ -1,5 +1,10 @@
 Revision history for Data-Properties
 
+2.001	2021-08-25
+
+	Remove from CPAN so the old and slightly incompatible version
+	(IX/Data-Properties) takes over. The latter is re-released as 1.06.
+
 1.05	2021-07-16
 
 	Data::Properties now replaces the old and slightly
