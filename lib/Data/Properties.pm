@@ -8,8 +8,8 @@ use warnings;
 # Author          : Johan Vromans
 # Created On      : Mon Mar  4 11:51:54 2002
 # Last Modified By: Johan Vromans
-# Last Modified On: Fri Jul 16 08:23:14 2021
-# Update Count    : 545
+# Last Modified On: Wed Aug 25 14:16:41 2021
+# Update Count    : 552
 # Status          : Unknown, Use with caution!
 
 =head1 NAME
@@ -88,7 +88,7 @@ lightweight so shell scripts can use it to query properties.
 
 =cut
 
-our $VERSION = "1.05";
+our $VERSION = "2.001";
 
 use Text::ParseWords qw(parse_line);
 use File::LoadLines;
@@ -457,7 +457,7 @@ sub _parse_lines_internal {
 	if ( /^([}\]])$/ ) {
 	    die("stack underflow at line $lineno")
 	      unless @stack
-	             && $1 eq defined($stack[0]->[1]) ? ']' : '}';
+	             && ( $1 eq defined($stack[0]->[1]) ? ']' : '}' );
 	    shift(@stack);
 	    next;
 	}
@@ -468,6 +468,8 @@ sub _parse_lines_internal {
 	# Simple assignment.
 	# The value is expanded unless single quotes are used.
 	if ( /^($keypat)\s*[=:]\s*(.*)/ ) {
+	    die("Brace is illegal as a value (use quotes to bypass)\n")
+	      if $2 eq '{';
 	    my $prop = $self->_value( $1, undef, "noexpand" );
 	    my $value = $self->_value( $2, $stack[0] );
 
